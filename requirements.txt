@@ -1,2 +1,4 @@
 fastAPI>=0.110.0
 uvicorn>=0.28.0
+PyJWT>=2.3.0
+python-decouple>=3.8
