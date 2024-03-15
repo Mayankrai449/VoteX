@@ -25,7 +25,11 @@ db = conn.votingsys
 @app.get("/", tags = ["greet"])
 def greet(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
-    
+
+@app.get("/layout", response_class=HTMLResponse, tags=["greet"])
+def layout(request: Request):
+    return templates.TemplateResponse("layout.html", {"request": request})
+
     
 @app.get("/register", response_class=HTMLResponse, tags=["data"])
 def register(request: Request):
