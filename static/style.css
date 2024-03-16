@@ -4,16 +4,30 @@ body {
   background-color: #000000;
   overflow: hidden;
 }
+
+.container{
+  position: relative;
+  bottom: 50px;
+}
 .heading {
   position: relative;
   top: 70px;
-  left: 100px;
+  left: 50px;
 
   font-size: 28px;
   text-align: left;
   font-weight: bold;
   color: #ffffff;
 }
+
+.voteverify{
+  display: none;
+  position: absolute;
+  bottom: 400px;
+  left: 40%;
+  z-index: 1;
+}
+.show {display:block;}
 
 .imgsize{
   width: 100%;
@@ -23,12 +37,12 @@ body {
 .clickcard {
   position: relative;
   bottom: 390px;
-  left: 65.08%;
+  left: 69%;
 }
 
 .votecard {
   position: relative;
-  left: 65.08%;
+  left: 69%;
   bottom: 370px;
 }
 
