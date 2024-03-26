@@ -41,6 +41,10 @@ def get_one_user(email: EmailStr):
     name =  data["fullname"]
     return {"fullname": name}
 
+@app.get("/dashboard", dependencies=[Depends(jwtBearer())], response_class=HTMLResponse, tags=["data"])
+def dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
 @app.post("/user/register", response_class=HTMLResponse, tags=["user"])
 async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
     data = user.model_dump()
@@ -55,10 +59,14 @@ def check_user(data: UserLoginSchema):
                 return True
     return False
 
+@app.get("/create-poll", response_class=HTMLResponse, tags=["data"])
+def create_poll(request: Request):
+    return templates.TemplateResponse("createpoll.html", {"request": request})
+
 @app.post("/user/login", response_class=HTMLResponse, tags=["user"])
-def user_login(request: Request, user: UserLoginSchema = Depends(UserLoginSchema.form)):
+def user_login(user: UserLoginSchema = Depends(UserLoginSchema.form)):
     if check_user(user):
-        return templates.TemplateResponse("dashboard.html", {"request": request})
+        return RedirectResponse(url="/dashboard")
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
