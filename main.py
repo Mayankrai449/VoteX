@@ -41,19 +41,23 @@ def get_one_user(email: EmailStr):
     name =  data["fullname"]
     return {"fullname": name}
 
-@app.get("/dashboard", dependencies=[Depends(jwtBearer())], response_class=HTMLResponse, tags=["data"])
+@app.get("/dashboard", response_class=HTMLResponse, tags=["data"])
 def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.post("/user/register", response_class=HTMLResponse, tags=["user"])
 async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
-    data = user.model_dump()
-    conn.votingsys.users.insert_one(data)
-    return RedirectResponse(url="/user/login")
+    try:
+        data = user.model_dump()
+        conn.votingsys.users.insert_one(data)
+        return RedirectResponse(url="/user/login")
+    except Exception as e:
+        return {"error": str(e)}
 
 def check_user(data: UserLoginSchema):
     users = conn.votingsys.users.find({})
     for user in users:
+        print(user)
         if user["email"] == data.email:
             if user["password"] == data.password:
                 return True
@@ -63,7 +67,7 @@ def check_user(data: UserLoginSchema):
 def create_poll(request: Request):
     return templates.TemplateResponse("createpoll.html", {"request": request})
 
-@app.post("/user/login", response_class=HTMLResponse, tags=["user"])
+@app.post("/user/login", tags=["user"])
 def user_login(user: UserLoginSchema = Depends(UserLoginSchema.form)):
     if check_user(user):
         return RedirectResponse(url="/dashboard")
