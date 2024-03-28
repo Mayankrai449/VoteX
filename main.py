@@ -7,7 +7,8 @@ from typing import Annotated
 from pydantic import BaseModel, Field, EmailStr
 
 import uvicorn
-from models.model import DataSchema, UserRegSchema, UserLoginSchema
+from models.model import UserRegSchema, UserLoginSchema
+from models.poll_model import PollForm
 from auth.jwt_handler import signJWT
 from auth.jwt_bearer import jwtBearer
 import control
@@ -32,7 +33,7 @@ def layout(request: Request):
 
     
 @app.get("/register", response_class=HTMLResponse, tags=["data"])
-def register(request: Request):
+async def register(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.get("/data/{email}", tags=["data"])
@@ -41,11 +42,11 @@ def get_one_user(email: EmailStr):
     name =  data["fullname"]
     return {"fullname": name}
 
-@app.get("/dashboard", response_class=HTMLResponse, tags=["data"])
-def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+# @app.get("/dashboard", response_class=HTMLResponse, tags=["data"])
+# async def dashboard(request: Request):
+#     return templates.TemplateResponse("dashboard.html", {"request": request})
 
-@app.post("/user/register", response_class=HTMLResponse, tags=["user"])
+@app.post("/user/register", tags=["user"])
 async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
     try:
         data = user.model_dump()
@@ -63,14 +64,23 @@ def check_user(data: UserLoginSchema):
                 return True
     return False
 
-@app.get("/create-poll", response_class=HTMLResponse, tags=["data"])
-def create_poll(request: Request):
+@app.post("/createpoll", tags = ["poll"])
+async def create_poll(data: PollForm = Depends(PollForm.form)):
+    try:
+        poll = data.model_dump()
+        conn.votingsys.polls.insert_one(poll)
+        return {"message": "Poll created successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/pollform", response_class=HTMLResponse, tags=["poll"])
+async def poll_form(request: Request):
     return templates.TemplateResponse("createpoll.html", {"request": request})
 
-@app.post("/user/login", tags=["user"])
-def user_login(user: UserLoginSchema = Depends(UserLoginSchema.form)):
+@app.post("/user/login", response_class=HTMLResponse, tags=["user"])
+async def user_login(request: Request, user: UserLoginSchema = Depends(UserLoginSchema.form)):
     if check_user(user):
-        return RedirectResponse(url="/dashboard")
+        return templates.TemplateResponse("dashboard.html", {"request": request})
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 

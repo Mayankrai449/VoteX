@@ -1,14 +1,7 @@
 from pydantic import BaseModel, Field, EmailStr
-from datetime import date
 from fastapi import Form
 
-class DataSchema(BaseModel):
-    id: int = Field(default=None),
-    name: str = Field(default=None),
-    age: int = Field(default=None),
-    email: EmailStr = Field(default=None),
     
-
 class UserRegSchema(BaseModel):
     fullname: str
     email: EmailStr
