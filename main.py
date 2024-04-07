@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Body, Form, Depends, HTTPException, status, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pymongo import MongoClient
@@ -42,23 +42,22 @@ def get_one_user(email: EmailStr):
     name =  data["fullname"]
     return {"fullname": name}
 
-# @app.get("/dashboard", response_class=HTMLResponse, tags=["data"])
-# async def dashboard(request: Request):
-#     return templates.TemplateResponse("dashboard.html", {"request": request})
+@app.get("/dashboard", response_class=HTMLResponse, dependencies=[Depends(jwtBearer())], tags=["data"])
+async def dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.post("/user/register", tags=["user"])
 async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
     try:
         data = user.model_dump()
         conn.votingsys.users.insert_one(data)
-        return RedirectResponse(url="/user/login")
+        return RedirectResponse(url="/user/login", status_code=status.HTTP_303_SEE_OTHER)
     except Exception as e:
         return {"error": str(e)}
 
 def check_user(data: UserLoginSchema):
     users = conn.votingsys.users.find({})
     for user in users:
-        print(user)
         if user["email"] == data.email:
             if user["password"] == data.password:
                 return True
@@ -78,9 +77,10 @@ async def poll_form(request: Request):
     return templates.TemplateResponse("createpoll.html", {"request": request})
 
 @app.post("/user/login", response_class=HTMLResponse, tags=["user"])
-async def user_login(request: Request, user: UserLoginSchema = Depends(UserLoginSchema.form)):
+async def user_login(response: Response, user: UserLoginSchema = Depends(UserLoginSchema.form)):
     if check_user(user):
-        return templates.TemplateResponse("dashboard.html", {"request": request})
+        token = signJWT(user.email)
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 

@@ -10,12 +10,13 @@ class UserRegSchema(BaseModel):
     password: str
     
     @classmethod
-    def form(cls,
-                fullname: str = Form(...),
-                email: EmailStr = Form(...),
-                dob: str = Form(...),
-                city: str = Form(...),
-                password: str = Form(...)
+    def form(
+        cls,
+        fullname: str = Form(...),
+        email: EmailStr = Form(...),
+        dob: str = Form(...),
+        city: str = Form(...),
+        password: str = Form(...)
     ):
         return cls(
             fullname=fullname,
@@ -31,9 +32,10 @@ class UserLoginSchema(BaseModel):
     password: str = Field(default=None),
     
     @classmethod
-    def form(cls,
-                email: EmailStr = Form(...),
-                password: str = Form(...)
+    def form(
+        cls,
+        email: EmailStr = Form(...),
+        password: str = Form(...)
     ):
         return cls(
             email=email,

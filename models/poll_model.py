@@ -3,6 +3,7 @@ from datetime import time
 from typing import List
 from fastapi import Form
 
+
 class PollForm(BaseModel):
     title: str
     description: str
@@ -12,13 +13,14 @@ class PollForm(BaseModel):
     end_time: str
     
     @classmethod
-    def form(cls,
-                title: str = Form(...),
-                description: str = Form(...),
-                age: int = Form(...),
-                name: List[str] = Form(...),
-                end_date: str = Form(...),
-                end_time: str = Form(...)
+    def form(
+        cls,
+        title: str = Form(...),
+        description: str = Form(...),
+        age: int = Form(...),
+        name: List[str] = Form(...),
+        end_date: str = Form(...),
+        end_time: str = Form(...)
     ):
         return cls(
             title=title,
