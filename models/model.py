@@ -3,6 +3,7 @@ from fastapi import Form
 
     
 class UserRegSchema(BaseModel):
+    username: str
     fullname: str
     email: EmailStr
     dob: str = Field(default=None),
@@ -12,6 +13,7 @@ class UserRegSchema(BaseModel):
     @classmethod
     def form(
         cls,
+        username: str = Form(...),
         fullname: str = Form(...),
         email: EmailStr = Form(...),
         dob: str = Form(...),
@@ -19,6 +21,7 @@ class UserRegSchema(BaseModel):
         password: str = Form(...)
     ):
         return cls(
+            username=username,
             fullname=fullname,
             email=email,
             dob=dob,
@@ -28,16 +31,26 @@ class UserRegSchema(BaseModel):
     
  
 class UserLoginSchema(BaseModel):
-    email: EmailStr = Field(default=None),
+    username: str = Field(default=None),
     password: str = Field(default=None),
     
     @classmethod
     def form(
         cls,
-        email: EmailStr = Form(...),
+        username: str = Form(...),
         password: str = Form(...)
     ):
         return cls(
-            email=email,
+            username=username,
             password=password
         )
+        
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    
+class TokenData(BaseModel):
+    username: str = None
+    
+class UserPass(BaseModel):
+    hashed_password: str
