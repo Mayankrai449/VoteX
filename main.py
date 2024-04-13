@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from typing import Union
 from typing_extensions import Annotated, Doc
@@ -26,6 +27,13 @@ TOKEN_TIME = 15
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -42,7 +50,10 @@ def check_user(data: UserLoginSchema):
 
 def get_user(username: str):
     user = db.users.find_one({"username": username})
-    return user
+    if user:
+        user_data = {key: value for key, value in user.items() if key != "_id"}  # Exclude MongoDB ObjectId
+        return user_data
+    return None
 
 def verify_password(plain_password, hashed_password):
     return pass_context.verify(plain_password, hashed_password)
@@ -61,7 +72,8 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth_2_scheme)):
+async def get_current_user(request: Request):
+    token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -80,6 +92,13 @@ async def get_current_user(token: str = Depends(oauth_2_scheme)):
         raise credentials_exception
     
     return user
+
+async def get_current_active_user(
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user.get("disabled"):
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
 
     
 
@@ -103,7 +122,7 @@ def get_one_user(username: str):
     return {"fullname": name}
 
 @app.get("/dashboard", tags=["data"])
-async def dashboard(request: Request, current_user: dict = Depends(get_current_user)):
+async def dashboard(request: Request, current_user: dict = Depends(get_current_active_user)):
     return templates.TemplateResponse("dashboard.html", {"request": request, "token": current_user})
 
 
@@ -131,19 +150,22 @@ async def poll_form(request: Request):
     return templates.TemplateResponse("createpoll.html", {"request": request})
 
 @app.post("/login", tags=["user"])
-async def user_login(response: Response, user: OAuth2PasswordRequestForm = Depends()):
+async def token_auth(response: Response, user: Annotated[OAuth2PasswordRequestForm, Depends()]):
     if not check_user(user):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"})
-        
+
     access_token_expires = timedelta(minutes=TOKEN_TIME)
     access_token = create_access_token(
         data={"sub": user.username},
-        expires_delta=access_token_expires)
-    
-    return {"access_token": access_token, "token_type": "bearer"}
+        expires_delta=access_token_expires
+    )
+
+    response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie(key="access_token", value=access_token, httponly=True)
+    return response
     
     
 if __name__ == "__main__":

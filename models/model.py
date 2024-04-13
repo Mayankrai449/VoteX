@@ -9,6 +9,7 @@ class UserRegSchema(BaseModel):
     dob: str = Field(default=None),
     city: str = Field(default=None),
     password: str
+    disabled: bool = Field(default=False)
     
     @classmethod
     def form(
