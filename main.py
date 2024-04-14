@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from typing import Union
 from typing_extensions import Annotated, Doc
-from pydantic import BaseModel, Field
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
@@ -51,7 +50,7 @@ def check_user(data: UserLoginSchema):
 def get_user(username: str):
     user = db.users.find_one({"username": username})
     if user:
-        user_data = {key: value for key, value in user.items() if key != "_id"}  # Exclude MongoDB ObjectId
+        user_data = {key: value for key, value in user.items() if key != "_id"}
         return user_data
     return None
 
@@ -74,6 +73,13 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
 
 async def get_current_user(request: Request):
     token = request.cookies.get("access_token")
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -110,10 +116,6 @@ async def greet(request: Request):
 async def layout(request: Request):
     return templates.TemplateResponse("layout.html", {"request": request})
 
-    
-@app.get("/register", response_class=HTMLResponse, tags=["data"])
-async def register(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
 
 @app.get("/data/{username}", tags=["data"])
 def get_one_user(username: str):
@@ -126,28 +128,47 @@ async def dashboard(request: Request, current_user: dict = Depends(get_current_a
     return templates.TemplateResponse("dashboard.html", {"request": request, "token": current_user})
 
 
-@app.post("/register", tags=["user"])
-async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
-    try:
-        data = user.model_dump()
-        data["password"] = get_hashed_password(data["password"])
-        db.users.insert_one(data)
-        return RedirectResponse(url="/login")
-    except Exception as e:
-        return {"error": str(e)}
-
 @app.post("/createpoll", tags = ["poll"])
-async def create_poll(data: PollForm = Depends(PollForm.form)):
+async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
     try:
         poll = data.model_dump()
+        poll["username"] = current_user["username"]
+        poll["poll_id"] = control.encode_id(poll["title"], poll["username"])
         db.polls.insert_one(poll)
         return {"message": "Poll created successfully"}
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/pollform", response_class=HTMLResponse, tags=["poll"])
-async def poll_form(request: Request):
-    return templates.TemplateResponse("createpoll.html", {"request": request})
+
+@app.get("/pollform", tags=["poll"])
+async def poll_form(request: Request, current_user: dict = Depends(get_current_active_user)):
+    return templates.TemplateResponse("createpoll.html", {"request": request, "token": current_user})
+
+@app.get("/polls", tags=["poll"])
+async def get_polls(request: Request, current_user: dict = Depends(get_current_active_user)):
+    polls = db.polls.find({})
+    return templates.TemplateResponse("allPolls.html", {"request": request, "polls": polls, "token": current_user})
+
+@app.get("/poll/{poll_id}", tags=["poll"])
+async def get_poll(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user)):
+    poll = db.polls.find_one({"_id": poll_id})
+    return templates.TemplateResponse("poll.html", {"request": request, "poll": poll, "token": current_user})
+
+
+@app.get("/register", response_class=HTMLResponse, tags=["data"])
+async def register(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
+@app.post("/user/register", tags=["user"])
+async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
+    try:
+        data = user.model_dump()
+        data["password"] = get_hashed_password(data["password"])
+        data["age"] = control.calculate_age(data["dob"])
+        db.users.insert_one(data)
+        return RedirectResponse(url="/login")
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.post("/login", tags=["user"])
 async def token_auth(response: Response, user: Annotated[OAuth2PasswordRequestForm, Depends()]):
@@ -167,6 +188,11 @@ async def token_auth(response: Response, user: Annotated[OAuth2PasswordRequestFo
     response.set_cookie(key="access_token", value=access_token, httponly=True)
     return response
     
+@app.get("/logout", tags=["user"])
+def logout(response: Response):
+    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response.delete_cookie("access_token")
+    return response
     
 if __name__ == "__main__":
     uvicorn.run(app, port=8004, host="127.0.0.1")

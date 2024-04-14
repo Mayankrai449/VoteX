@@ -2,17 +2,17 @@ body {
   margin: 0;
   padding: 0;
   background-color: #000000;
-  overflow: hidden;
 }
 
-.container{
-  position: relative;
-  bottom: 50px;
+.center {
+  position: absolute;
+  left: 50%;
 }
+
 .heading {
   position: relative;
-  top: 70px;
-  left: 50px;
+  top: 40px;
+  left: 70px;
 
   font-size: 28px;
   text-align: left;
@@ -36,14 +36,14 @@ body {
 
 .clickcard {
   position: relative;
-  bottom: 390px;
+  bottom: 450px;
   left: 69%;
 }
 
 .votecard {
   position: relative;
   left: 69%;
-  bottom: 370px;
+  bottom: 430px;
 }
 
 #user-dropdown {

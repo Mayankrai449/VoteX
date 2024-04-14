@@ -6,11 +6,13 @@ from fastapi import Form
 
 class PollForm(BaseModel):
     title: str
-    description: str
-    age: int
+    description: str = "Decentralized Voting"
+    age: int = 18
     name: List[str]
     end_date: str
     end_time: str
+    username: str = "Admin"
+    poll_id: str
     
     @classmethod
     def form(
