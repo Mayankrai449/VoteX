@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from typing import Union
-from typing_extensions import Annotated, Doc
+from typing_extensions import Annotated
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
@@ -146,13 +146,47 @@ async def poll_form(request: Request, current_user: dict = Depends(get_current_a
 
 @app.get("/polls", tags=["poll"])
 async def get_polls(request: Request, current_user: dict = Depends(get_current_active_user)):
-    polls = db.polls.find({})
+    polls = db.polls.find({"username": current_user["username"]})
     return templates.TemplateResponse("allPolls.html", {"request": request, "polls": polls, "token": current_user})
 
 @app.get("/poll/{poll_id}", tags=["poll"])
 async def get_poll(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user)):
-    poll = db.polls.find_one({"_id": poll_id})
-    return templates.TemplateResponse("poll.html", {"request": request, "poll": poll, "token": current_user})
+    poll = db.polls.find_one({"poll_id": poll_id})
+    name = poll["name"]
+    return templates.TemplateResponse("poll.html", {"request": request, "poll": poll, "name": name, "token": current_user})
+
+@app.post("/vote", tags=["poll"])
+async def vote(response: Response, poll_id: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user)):
+    poll = db.polls.find_one({"poll_id": poll_id})
+    if not poll:
+        return {"error": "Poll not found"}
+    return RedirectResponse(url=f"/poll/{poll_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+@app.post("/vote/{poll_id}", tags=["poll"])
+async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user)):
+    username = current_user["username"]
+    poll = db.polls.find_one({"poll_id": poll_id})
+    user = db.users.find_one({"username": username})
+    votes = db.votes.find_one({"poll_id": poll_id, "username": username})
+    
+    if votes:
+        raise HTTPException(status_code=400, detail="You have already voted in this poll")
+    
+    if user["age"] < poll["age"]:
+        raise HTTPException(status_code=400, detail="You are not eligible to vote in this poll")
+    
+    data = {
+        "poll_id": poll_id,
+        "username": username,
+        "vote": cast
+    }
+    
+    db.votes.insert_one(data)
+    
+    return {"message": "Vote cast successfully", "poll_id": poll_id, "vote": cast}
+    
+    
+    
 
 
 @app.get("/register", response_class=HTMLResponse, tags=["data"])

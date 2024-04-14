@@ -38,7 +38,7 @@
       </a>
       <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">Enter the Poll ID to verify voter and cast the vote</p>
       <a onclick="drop()" href="#" class="inline-flex items-center px-3 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-        Create Poll
+        Vote
          <svg class="rtl:rotate-180 w-3.5 h-3.5 ms-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 10">
           <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5h12m0 0L9 1m4 4L9 9"/>
         </svg>
@@ -46,11 +46,11 @@
     </div>
   </div>
 
-  <form class="myDropdown voteverify w-full max-w-sm">
+  <form method="post" action="/vote" class="myDropdown voteverify w-full max-w-sm" style=" bottom: 80px;">
     <div class="flex items-center border-b border-blue-500 py-2">
-      <input class="appearance-none bg-transparent border-none w-full text-stone-50 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Poll ID" aria-label="Full name">
-      <button class="flex-shrink-0 border-transparent border-4 text-blue-500 hover:text-teal-800 text-sm py-1 px-2 rounded" type="button">
-        Verify
+      <input class="appearance-none bg-transparent border-none w-full text-stone-50 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" name="poll_id" placeholder="Poll ID" aria-label="Poll ID">
+      <button class="flex-shrink-0 border-transparent border-4 text-blue-500 hover:text-teal-800 text-sm py-1 px-2 rounded" type="submit">
+        Goto Poll
       </button>
     </div>
   </form>

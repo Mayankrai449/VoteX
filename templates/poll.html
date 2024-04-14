@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block title %}Create-Poll{% endblock %}
+{% block content %}
+
+<form action="/vote/{{ poll.poll_id }}" method="post">
+<h3 class="mb-4 font-semibold text-gray-900 dark:text-white">Candidates:</h3>
+{% for key in name.keys() %}
+    <ul class="w-48 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+        <li class="w-full border-b border-gray-200 rounded-t-lg dark:border-gray-600">
+            <div class="flex items-center ps-3">
+                <input id="{{ key }}" type="radio" value="{{ key }}" name="cast" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500">
+                <label for="{{ key }}" class="w-full py-3 ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">{{ key }}</label>
+            </div>
+        </li>
+    </ul>
+{% endfor %}
+<button type="submit" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Vote</button>
+</form>
+
+{% endblock %}

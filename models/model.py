@@ -7,7 +7,7 @@ class UserRegSchema(BaseModel):
     fullname: str
     email: EmailStr
     dob: str 
-    age: int
+    age: int = Field(default=None)
     city: str = Field(default=None),
     password: str
     disabled: bool = Field(default=False)

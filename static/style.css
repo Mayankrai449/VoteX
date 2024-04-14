@@ -4,11 +4,6 @@ body {
   background-color: #000000;
 }
 
-.center {
-  position: absolute;
-  left: 50%;
-}
-
 .heading {
   position: relative;
   top: 40px;
@@ -23,7 +18,6 @@ body {
 .voteverify{
   display: none;
   position: absolute;
-  bottom: 400px;
   left: 40%;
   z-index: 1;
 }
