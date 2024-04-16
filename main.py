@@ -1,28 +1,24 @@
-from fastapi import FastAPI, Body, Form, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Body, Form, Depends, HTTPException, status, Request, Query
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
+
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from typing import Union
 from typing_extensions import Annotated
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
-from decouple import config
+from urllib.parse import urlencode
+
+import auth
+from dependencies import get_current_active_user
 
 import uvicorn
-from models.model import UserRegSchema, UserLoginSchema, TokenData, Token, UserPass
+from models.model import UserRegSchema
 from models.poll_model import PollForm
 import control
 
-
-pass_context = CryptContext(schemes=["argon2"], deprecated="auto")
-oauth_2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-JWT_SECRET = config("secret_key")
-JWT_ALGORITHM = config("algorithm")
-TOKEN_TIME = 15
 
 app = FastAPI()
 
@@ -38,74 +34,6 @@ templates = Jinja2Templates(directory="templates")
 
 conn = MongoClient("mongodb+srv://Mayankrai449:RWHLI4g2RqoHljpQ@cluster0.7hu8wbd.mongodb.net/votingsys")
 db = conn.votingsys
-
-def check_user(data: UserLoginSchema):
-    users = db.users.find({})
-    for user in users:
-        if user["username"] == data.username:
-            if verify_password(data.password, user["password"]):
-                return True
-    return False
-
-def get_user(username: str):
-    user = db.users.find_one({"username": username})
-    if user:
-        user_data = {key: value for key, value in user.items() if key != "_id"}
-        return user_data
-    return None
-
-def verify_password(plain_password, hashed_password):
-    return pass_context.verify(plain_password, hashed_password)
-
-def get_hashed_password(password):
-    return pass_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=TOKEN_TIME)
-    
-    to_encode.update({"exp": expire, "username": to_encode["sub"]})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
-
-async def get_current_user(request: Request):
-    token = request.cookies.get("access_token")
-    if token is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except JWTError:
-        raise credentials_exception
-    user = get_user(username=token_data.username)
-    if user is None:
-        raise credentials_exception
-    
-    return user
-
-async def get_current_active_user(
-    current_user: dict = Depends(get_current_user),
-):
-    if current_user.get("disabled"):
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
-
     
 
 @app.get("/", tags = ["greet"])
@@ -132,8 +60,8 @@ async def dashboard(request: Request, current_user: dict = Depends(get_current_a
 async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
     try:
         poll = data.model_dump()
-        poll["username"] = current_user["username"]
-        poll["poll_id"] = control.encode_id(poll["title"], poll["username"])
+        poll["creator"] = current_user["username"]
+        poll["poll_id"] = control.encode_id(poll["title"], poll["creator"])
         db.polls.insert_one(poll)
         return {"message": "Poll created successfully"}
     except Exception as e:
@@ -146,7 +74,7 @@ async def poll_form(request: Request, current_user: dict = Depends(get_current_a
 
 @app.get("/polls", tags=["poll"])
 async def get_polls(request: Request, current_user: dict = Depends(get_current_active_user)):
-    polls = db.polls.find({"username": current_user["username"]})
+    polls = db.polls.find({"creator": current_user["username"]})
     return templates.TemplateResponse("allPolls.html", {"request": request, "polls": polls, "token": current_user})
 
 @app.get("/poll/{poll_id}", tags=["poll"])
@@ -162,12 +90,12 @@ async def vote(response: Response, poll_id: Annotated[str, Form()], current_user
         return {"error": "Poll not found"}
     return RedirectResponse(url=f"/poll/{poll_id}", status_code=status.HTTP_303_SEE_OTHER)
 
-@app.post("/vote/{poll_id}", tags=["poll"])
+@app.post("/vote/{poll_id}", status_code=201, tags=["poll"])
 async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user)):
     username = current_user["username"]
     poll = db.polls.find_one({"poll_id": poll_id})
     user = db.users.find_one({"username": username})
-    votes = db.votes.find_one({"poll_id": poll_id, "username": username})
+    votes = db.votes.find_one({"poll_id": poll_id, "voter": username})
     
     if votes:
         raise HTTPException(status_code=400, detail="You have already voted in this poll")
@@ -177,17 +105,52 @@ async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], c
     
     data = {
         "poll_id": poll_id,
-        "username": username,
+        "creater": poll["creator"],
+        "voter": username,
         "vote": cast
     }
     
     db.votes.insert_one(data)
     
-    return {"message": "Vote cast successfully", "poll_id": poll_id, "vote": cast}
+    query_params = urlencode({"cast": cast})
+    redirect_url = f"/updatevote/{poll_id}?{query_params}"
     
-    
-    
+    response = RedirectResponse(url=redirect_url)
+    return response
 
+@app.post("/updatevote/{poll_id}", tags=["poll"])
+async def update_vote(poll_id: str, cast: str = Query(..., alias="cast"), current_user: dict = Depends(get_current_active_user)):
+    poll = db.polls.find_one({"poll_id": poll_id})
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    
+    if cast not in poll["name"]:
+        raise HTTPException(status_code=400, detail="Invalid vote")
+    poll["name"][cast] += 1
+    
+    db.polls.update_one({"poll_id": poll_id}, {"$set": {"name": poll["name"]}})
+    
+    return RedirectResponse(url=f"/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
+@app.patch("/updatepoll/{poll_id}", tags=["poll"])
+async def update_poll(poll_id: str, data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
+    poll = db.polls.find_one({"poll_id": poll_id})
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    
+    db.polls.update_one({"poll_id": poll_id}, {"$set": data.model_dump()})
+    return RedirectResponse(url=f"/poll/{poll_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+@app.delete("/deletepoll/{poll_id}", tags=["poll"])
+async def delete_poll(poll_id: str, current_user: dict = Depends(get_current_active_user)):
+    poll = db.polls.find_one({"poll_id": poll_id})
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    
+    db.polls.delete_one({"poll_id": poll_id})
+    return RedirectResponse(url="/polls", status_code=status.HTTP_303_SEE_OTHER)
+    
+    
 
 @app.get("/register", response_class=HTMLResponse, tags=["data"])
 async def register(request: Request):
@@ -197,7 +160,7 @@ async def register(request: Request):
 async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
     try:
         data = user.model_dump()
-        data["password"] = get_hashed_password(data["password"])
+        data["password"] = auth.get_hashed_password(data["password"])
         data["age"] = control.calculate_age(data["dob"])
         db.users.insert_one(data)
         return RedirectResponse(url="/login")
@@ -206,14 +169,14 @@ async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
 
 @app.post("/login", tags=["user"])
 async def token_auth(response: Response, user: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    if not check_user(user):
+    if not auth.check_user(user):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"})
 
-    access_token_expires = timedelta(minutes=TOKEN_TIME)
-    access_token = create_access_token(
+    access_token_expires = timedelta(minutes=auth.TOKEN_TIME)
+    access_token = auth.create_access_token(
         data={"sub": user.username},
         expires_delta=access_token_expires
     )

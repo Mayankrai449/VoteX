@@ -11,7 +11,7 @@ class PollForm(BaseModel):
     name: Dict[str, int]
     end_date: str
     end_time: str
-    username: str = "Admin"
+    creator: str = "Admin"
     poll_id: str = "Admin"
     
     @classmethod
