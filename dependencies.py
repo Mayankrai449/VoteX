@@ -38,6 +38,6 @@ async def get_current_user(request: Request):
 async def get_current_active_user(
     current_user: dict = Depends(get_current_user),
 ):
-    if current_user.get("disabled"):
+    if current_user.get("disabled") or isinstance(current_user, RedirectResponse):
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user

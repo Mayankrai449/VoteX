@@ -9,6 +9,7 @@ from pymongo import MongoClient
 from typing import Union
 from typing_extensions import Annotated
 from datetime import datetime, timedelta, timezone
+import pytz
 from urllib.parse import urlencode
 
 import auth
@@ -35,6 +36,7 @@ templates = Jinja2Templates(directory="templates")
 conn = MongoClient("mongodb+srv://Mayankrai449:RWHLI4g2RqoHljpQ@cluster0.7hu8wbd.mongodb.net/votingsys")
 db = conn.votingsys
     
+local_timezone = pytz.timezone('Asia/Kolkata')
 
 @app.get("/", tags = ["greet"])
 async def greet(request: Request):
@@ -59,10 +61,19 @@ async def dashboard(request: Request, current_user: dict = Depends(get_current_a
 @app.post("/createpoll", tags = ["poll"])
 async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
     try:
+        end_datetime_str = f"{data.end_date} {data.end_time}"
+        end_datetime = datetime.strptime(end_datetime_str, "%m/%d/%Y %H:%M")
+        
+        end_datetime_local = local_timezone.localize(end_datetime)
+        
         poll = data.model_dump()
         poll["creator"] = current_user["username"]
         poll["poll_id"] = control.encode_id(poll["title"], poll["creator"])
+        poll["expiry_time"] = end_datetime_local
+        
         db.polls.insert_one(poll)
+        db.polls.create_index("expiry_time", expireAfterSeconds=0)
+        
         return {"message": "Poll created successfully"}
     except Exception as e:
         return {"error": str(e)}
@@ -72,10 +83,12 @@ async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dic
 async def poll_form(request: Request, current_user: dict = Depends(get_current_active_user)):
     return templates.TemplateResponse("createpoll.html", {"request": request, "token": current_user})
 
+
 @app.get("/polls", tags=["poll"])
 async def get_polls(request: Request, current_user: dict = Depends(get_current_active_user)):
     polls = db.polls.find({"creator": current_user["username"]})
     return templates.TemplateResponse("allPolls.html", {"request": request, "polls": polls, "token": current_user})
+
 
 @app.get("/poll/{poll_id}", tags=["poll"])
 async def get_poll(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user)):
@@ -83,12 +96,14 @@ async def get_poll(request: Request, poll_id: str, current_user: dict = Depends(
     name = poll["name"]
     return templates.TemplateResponse("poll.html", {"request": request, "poll": poll, "name": name, "token": current_user})
 
+
 @app.post("/vote", tags=["poll"])
 async def vote(response: Response, poll_id: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user)):
     poll = db.polls.find_one({"poll_id": poll_id})
     if not poll:
         return {"error": "Poll not found"}
     return RedirectResponse(url=f"/poll/{poll_id}", status_code=status.HTTP_303_SEE_OTHER)
+
 
 @app.post("/vote/{poll_id}", status_code=201, tags=["poll"])
 async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user)):
@@ -118,6 +133,7 @@ async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], c
     response = RedirectResponse(url=redirect_url)
     return response
 
+
 @app.post("/updatevote/{poll_id}", tags=["poll"])
 async def update_vote(poll_id: str, cast: str = Query(..., alias="cast"), current_user: dict = Depends(get_current_active_user)):
     poll = db.polls.find_one({"poll_id": poll_id})
@@ -132,6 +148,7 @@ async def update_vote(poll_id: str, cast: str = Query(..., alias="cast"), curren
     
     return RedirectResponse(url=f"/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
+
 @app.patch("/updatepoll/{poll_id}", tags=["poll"])
 async def update_poll(poll_id: str, data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
     poll = db.polls.find_one({"poll_id": poll_id})
@@ -140,6 +157,7 @@ async def update_poll(poll_id: str, data: PollForm = Depends(PollForm.form), cur
     
     db.polls.update_one({"poll_id": poll_id}, {"$set": data.model_dump()})
     return RedirectResponse(url=f"/poll/{poll_id}", status_code=status.HTTP_303_SEE_OTHER)
+
 
 @app.delete("/deletepoll/{poll_id}", tags=["poll"])
 async def delete_poll(poll_id: str, current_user: dict = Depends(get_current_active_user)):

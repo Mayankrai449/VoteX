@@ -11,3 +11,4 @@ pydantic[email]>=1.9.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 argon2_cffi>=21.1.0
+pytz>=2022.1
