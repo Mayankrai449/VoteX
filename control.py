@@ -1,5 +1,7 @@
 from datetime import datetime, date
 import base64
+from pymongo import MongoClient
+from bson.codec_options import CodecOptions
 
 def encode_id(title: str, username: str) -> str:
     encoded_title = base64.urlsafe_b64encode(title.encode()).decode()
@@ -22,3 +24,19 @@ def calculate_age(dob: str) -> int:
     
     age = today.year - dob_date.year - ((today.month, today.day) < (dob_date.month, dob_date.day))
     return age
+
+def move_expired_poll_to_history(event):
+    data = event.get("documentKey")
+    poll_id = data.get("poll_id")
+
+    conn = MongoClient("mongodb+srv://Mayankrai449:RWHLI4g2RqoHljpQ@cluster0.7hu8wbd.mongodb.net/votingsys")
+    db = conn.votingsys
+
+    poll = db.polls.find_one({"poll_id": poll_id})
+
+    if poll:
+        # Insert the poll data into the "history" collection
+        db.history.insert_one(poll)
+
+        # Remove the poll from the "polls" collection
+        db.polls.delete_one({"poll_id": poll_id})

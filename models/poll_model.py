@@ -13,6 +13,7 @@ class PollForm(BaseModel):
     end_time: str
     creator: str = "Admin"
     poll_id: str = "Admin"
+    expiry_time: time = "00:00:00"
     
     @classmethod
     def form(

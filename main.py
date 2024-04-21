@@ -11,6 +11,8 @@ from typing_extensions import Annotated
 from datetime import datetime, timedelta, timezone
 import pytz
 from urllib.parse import urlencode
+from event_handlers import register_event_handlers
+from bson.codec_options import CodecOptions
 
 import auth
 from dependencies import get_current_active_user
@@ -20,6 +22,7 @@ from models.model import UserRegSchema
 from models.poll_model import PollForm
 import control
 
+register_event_handlers()
 
 app = FastAPI()
 
