@@ -11,8 +11,6 @@ from typing_extensions import Annotated
 from datetime import datetime, timedelta, timezone
 import pytz
 from urllib.parse import urlencode
-from event_handlers import register_event_handlers
-from bson.codec_options import CodecOptions
 
 import auth
 from dependencies import get_current_active_user
@@ -22,7 +20,6 @@ from models.model import UserRegSchema
 from models.poll_model import PollForm
 import control
 
-register_event_handlers()
 
 app = FastAPI()
 
@@ -60,6 +57,22 @@ def get_one_user(username: str):
 async def dashboard(request: Request, current_user: dict = Depends(get_current_active_user)):
     return templates.TemplateResponse("dashboard.html", {"request": request, "token": current_user})
 
+@app.get("/history", tags=["data"])
+async def history(request: Request, current_user: dict = Depends(get_current_active_user)):
+    history = db.history.find({"creator": current_user["username"], "poll_id": {"$nin": db.polls.distinct("poll_id")}})
+    return templates.TemplateResponse("history.html", {"request": request, "history": history, "token": current_user})
+
+@app.get("/results", tags=["data"])
+async def history(request: Request, current_user: dict = Depends(get_current_active_user)):
+    
+    res = db.votes.find({"voter": current_user["username"]})
+    
+    poll_ids = [r["poll_id"] for r in res]
+    
+    results = db.history.find({"poll_id": {"$in": poll_ids}})
+    
+    return templates.TemplateResponse("results.html", {"request": request, "results": results, "token": current_user})
+
 
 @app.post("/createpoll", tags = ["poll"])
 async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
@@ -76,6 +89,8 @@ async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dic
         
         db.polls.insert_one(poll)
         db.polls.create_index("expiry_time", expireAfterSeconds=0)
+        
+        db.history.insert_one(poll)
         
         return {"message": "Poll created successfully"}
     except Exception as e:
@@ -139,15 +154,23 @@ async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], c
 
 @app.post("/updatevote/{poll_id}", tags=["poll"])
 async def update_vote(poll_id: str, cast: str = Query(..., alias="cast"), current_user: dict = Depends(get_current_active_user)):
-    poll = db.polls.find_one({"poll_id": poll_id})
-    if not poll:
+    poll_in_polls = db.polls.find_one({"poll_id": poll_id})
+    poll_in_history = db.history.find_one({"poll_id": poll_id})
+
+    if not poll_in_polls or not poll_in_history:
         raise HTTPException(status_code=404, detail="Poll not found")
-    
-    if cast not in poll["name"]:
+
+    if cast not in poll_in_polls["name"]:
         raise HTTPException(status_code=400, detail="Invalid vote")
-    poll["name"][cast] += 1
     
-    db.polls.update_one({"poll_id": poll_id}, {"$set": {"name": poll["name"]}})
+    poll_in_polls["name"][cast] += 1
+    db.polls.update_one({"poll_id": poll_id}, {"$set": {"name": poll_in_polls["name"]}})
+
+    if cast not in poll_in_history["name"]:
+        raise HTTPException(status_code=400, detail="Invalid vote")
+    
+    poll_in_history["name"][cast] += 1
+    db.history.update_one({"poll_id": poll_id}, {"$set": {"name": poll_in_history["name"]}})
     
     return RedirectResponse(url=f"/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
