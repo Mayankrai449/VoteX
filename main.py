@@ -42,6 +42,12 @@ local_timezone = pytz.timezone('Asia/Kolkata')
 async def greet(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
+@app.get("/flash", response_class=HTMLResponse)
+async def home(request: Request):
+    flash_message = "Yolo, this is my flash!"
+    flash_type = "success"  # Assuming you want to pass the flash message type as well
+    return templates.TemplateResponse("flash.html", {"request": request, "flash_message": flash_message, "flash_type": flash_type})
+
 @app.get("/layout", response_class=HTMLResponse, tags=["greet"])
 async def layout(request: Request):
     return templates.TemplateResponse("layout.html", {"request": request})
@@ -55,7 +61,9 @@ def get_one_user(username: str):
 
 @app.get("/dashboard", tags=["data"])
 async def dashboard(request: Request, current_user: dict = Depends(get_current_active_user)):
-    return templates.TemplateResponse("dashboard.html", {"request": request, "token": current_user})
+    flash_message = "Yolo, this is my flash!"
+    flash_type = "success" 
+    return templates.TemplateResponse("dashboard.html", {"request": request, "token": current_user, "flash_message": flash_message, "flash_type": flash_type})
 
 @app.get("/history", tags=["data"])
 async def history(request: Request, current_user: dict = Depends(get_current_active_user)):
