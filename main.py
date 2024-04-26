@@ -7,7 +7,7 @@ from fastapi import Cookie
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
-from typing import Union, Optional
+from typing import Union, Optional, Dict, Any
 from typing_extensions import Annotated
 from datetime import datetime, timedelta, timezone
 import pytz
@@ -61,20 +61,37 @@ async def dashboard(request: Request, current_user: dict = Depends(get_current_a
 
 @app.get("/history", tags=["data"])
 async def history(request: Request, current_user: dict = Depends(get_current_active_user)):
+    
     history = db.history.find({"creator": current_user["username"], "poll_id": {"$nin": db.polls.distinct("poll_id")}})
+    
     return templates.TemplateResponse("history.html", {"request": request, "history": history, "token": current_user})
 
 @app.get("/results", tags=["data"])
-async def history(request: Request, current_user: dict = Depends(get_current_active_user)):
+async def all_res(request: Request, current_user: dict = Depends(get_current_active_user)):
     
-    res = db.votes.find({"voter": current_user["username"]})
+    res = db.votes.find({"voter": current_user["username"], "poll_id": {"$nin": db.polls.distinct("poll_id")}})
     
     poll_ids = [r["poll_id"] for r in res]
     
     results = db.history.find({"poll_id": {"$in": poll_ids}})
     
-    return templates.TemplateResponse("results.html", {"request": request, "results": results, "token": current_user})
+    return templates.TemplateResponse("allResults.html", {"request": request, "results": results, "token": current_user})
 
+@app.get("/results/{poll_id}", tags=["data"])
+async def result(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user)):
+    
+    results = db.history.find({"poll_id": poll_id})
+    
+    vote_counts: Dict[str, int] = {}
+    for result in results:
+        for candidate, count in result['name'].items():
+            vote_counts[candidate] = vote_counts.get(candidate, 0) + count
+
+    winner = max(vote_counts, key=vote_counts.get) if vote_counts else None
+
+    data: Dict[str, Any] = {"request": request, "results": vote_counts, "winner": winner, "token": current_user}
+    
+    return templates.TemplateResponse("result.html", data)
 
 @app.post("/createpoll", tags=["poll"])
 async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
@@ -201,7 +218,7 @@ async def update_poll(poll_id: str, data: PollForm = Depends(PollForm.form), cur
     return RedirectResponse(url=f"/poll/{poll_id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
-@app.delete("/deletepoll/{poll_id}", tags=["poll"])
+@app.post("/deletepoll/{poll_id}", tags=["poll"])
 async def delete_poll(response: Response, poll_id: str, current_user: dict = Depends(get_current_active_user)):
     poll = db.polls.find_one({"poll_id": poll_id})
     response = RedirectResponse(url="/polls", status_code=status.HTTP_303_SEE_OTHER)

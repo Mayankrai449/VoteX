@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block title %}Result{% endblock %}
+{% block content %}
+
+<div style="color: white;">
+<h1>Election Results</h1>
+    
+    <h2>Votes:</h2>
+    <ul>
+        {% for candidate, votes in results.items() %}
+            <li>{{ candidate }}: {{ votes }}</li>
+        {% endfor %}
+    </ul>
+    
+    <h2>Winner:</h2>
+    {% if winner %}
+        <p>The winner is: {{ winner }}</p>
+    {% else %}
+        <p>No winner declared yet.</p>
+    {% endif %}
+</div>
+
+
+{% endblock %}
