@@ -60,10 +60,6 @@ Run the main.py file
 - Flash messages are displayed to provide feedback to users after performing actions such as creating a poll or voting.
 - These messages convey success or failure information and are visible for a short duration.
 
-## Contributors
-- John Doe (@johndoe) - Project Lead
-- Jane Smith (@janesmith) - Frontend Developer
-- Alex Johnson (@alexjohnson) - Backend Developer
 
 ## Support
 For any inquiries or assistance, please contact mayankraivns@gmail.com
