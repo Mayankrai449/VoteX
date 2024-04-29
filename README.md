@@ -24,20 +24,29 @@ Follow these steps to set up the Voting System locally:
 
 1. **Clone Repository**: Clone the repository to your local machine using Git.
 
+```bash
  git clone https://github.com/Mayankrai449/Blockchain-voting-system
+ ```
 
 2. **Navigate to Directory**: Change your directory to the cloned repository.
 
+```bash
+cd blockchain-voting-system
+```
 
 3. **Install Dependencies**: Install the required Python dependencies using pip.
 
+```bash
 pip install -r requirements.txt
+```
 
 4. **Set Environment Variables**: Configure any necessary environment variables, such as database connection strings or authentication tokens, in a `.env` file.
 
 5. **Run the Application**: Start the FastAPI server to run the application.
 
+```bash
 uvicorn main:app --reload
+```
 
 or
 
