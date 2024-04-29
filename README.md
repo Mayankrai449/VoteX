@@ -1,5 +1,15 @@
 # VoteX
 
+## About This Project
+
+Welcome to the Blockchain-Based Voting System repository! This project aims to implement a secure and transparent voting system using blockchain technology. While the repository currently offers a simple voting system with basic features, such as poll creation, voting, and result viewing, please note that the blockchain features are planned for future implementation and are not yet available.
+
+I am actively working on integrating blockchain technology into the voting system to enhance security, transparency, and trust in the electoral process. Stay tuned for updates as I continue to develop and refine the project.
+
+Your feedback and contributions are highly appreciated as I work towards building a robust and reliable blockchain-based voting solution.
+
+Thank you for your interest in the Blockchain-Based Voting System project!
+
 ## Introduction
 Welcome to the Voting System VoteX! This document provides an overview of the features, setup instructions, and usage guidelines for the Voting System application.
 
@@ -33,35 +43,42 @@ or
 
 Run the main.py file
 
-6. **Access the Application**: Access the Voting System application in your web browser at `http://localhost:8000`.
+6. **Access the Application**: Access the Voting System application in your web browser at the LocalHost set in main.py.
 
 ## Usage Guidelines
 1. **Creating a Poll**:
-- Navigate to the application's homepage.
-- Click on the "Create Poll" button.
+- Login with your Username and Password.
+- On User Dashboard, Click on the "Create Poll" button.
 - Fill in the required details such as title, description, options, etc.
 - Submit the form to create the poll.
 
 2. **Voting on a Poll**:
-- Browse the list of available polls on the homepage.
-- Click on a poll to view its details.
-- Select an option and submit your vote.
+- Only the people who have a valid Poll-ID are eligible to vote.
+- Click on Vote button on Dashboard.
+- Enter the Poll ID and click Goto Poll.
+- Select your desired candidate and click on Vote.
 
 3. **Viewing Poll Results**:
-- After voting, or at any time, you can view the results of a poll.
-- Navigate to the poll's details page.
-- The results, including the number of votes for each option, will be displayed.
+- After the Poll ends, you can view the results of a poll.
+- Navigate to the Result tab on the Navbar.
+- Select the poll to view it's result.
 
 4. **Authentication**:
 - To create a poll or vote on a poll, users need to authenticate.
 - Use the provided authentication mechanism to log in or register as a new user.
-
-5. **Flash Messages**:
-- Flash messages are displayed to provide feedback to users after performing actions such as creating a poll or voting.
-- These messages convey success or failure information and are visible for a short duration.
 
 
 ## Support
 For any inquiries or assistance, please contact mayankraivns@gmail.com
 
 Thank you for using the Votex!
+
+## Work in Progress
+
+Please note that the Voting System application is still a work in progress. While it currently offers a range of features, there may be areas that are under development or require further refinement. Your feedback and contributions are highly appreciated as I continue to improve and expand the functionality of the application.
+
+If you encounter any issues, have suggestions for new features, or would like to contribute to the project, please feel free to open an issue or submit a pull request on GitHub.
+
+Thank you for your interest in the Voting System project and look forward to collaborating with the community to make it even better!
+
+
