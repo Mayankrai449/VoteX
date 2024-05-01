@@ -2,23 +2,92 @@
 {% block title %}Result{% endblock %}
 {% block content %}
 
+<style>
+
+    .dis{
+        color: white;
+        background-color: #367588;
+        padding: 20px;
+        margin: 10px;
+        border-radius: 10px;
+        width: 1000px;
+        height: 78%;
+    }
+    .centered {
+        position: fixed;
+        top: 55%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+    .plot {
+        width: 70%;
+        margin: auto;
+    }
+
+</style>
 <div style="color: white;">
-<h1>Election Results</h1>
+<h1 style="text-align:center; font-size: 50px; font-style: italic; margin-top: -15px;">Election Results</h1>
     
-    <h2>Votes:</h2>
-    <ul>
-        {% for candidate, votes in results.items() %}
-            <li>{{ candidate }}: {{ votes }}</li>
-        {% endfor %}
-    </ul>
+    <div class="dis centered">
+        <h2 style="font-size: 40px;">{{ results["title"] }}</h2>
+        <div style="height: 10px;"></div>
+        <h2 style="font-size: 20px;">
+            Poll ID: {{ results["poll_id"] }}
+            <button class="class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"" onclick="copyText('{{ results["poll_id"] }}')" style="margin-left: 20px; font-size: 15px; border: 1px solid #000;">Copy</button>
+        </h2>        <div style="height: 10px;"></div>
+        <h2 style="font-size: 20px;">Poll Creator: {{ results["creator"]  }}</h2>
+
     
-    <h2>Winner:</h2>
     {% if winner %}
-        <p>The winner is: {{ winner }}</p>
+        <p style="text-align: center; font-size: 20px;">Winner: {{ winner }} | with {{ vote[winner] }} votes</p>
     {% else %}
-        <p>No winner declared yet.</p>
+        <p style="text-align: center; font-size: 20px;">No winner declared yet.</p>
     {% endif %}
+    <div style="height: 30px;"></div>
+
+    <div class="plot" id="vote-graph"></div>
 </div>
 
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+    var voteData = {{ vote | tojson | safe }};
+    var data = [{
+        type: 'bar',
+        x: Object.keys(voteData),
+        y: Object.values(voteData),
+        marker: {
+            color: '002244'
+        }
+    }];
+
+    var layout = {
+        title: 'Vote Distribution',
+        xaxis: {
+            tickangle: -45
+        },
+        yaxis: {
+            title: 'Votes'
+        },
+        bargap: 0.05
+    };
+
+    Plotly.newPlot('vote-graph', data, layout);
+
+    function copyText(text) {
+        var input = document.createElement('input');
+        input.setAttribute('value', text);
+        document.body.appendChild(input);
+
+        input.select();
+        input.setSelectionRange(0, 99999);
+
+        document.execCommand('copy');
+
+        document.body.removeChild(input);
+
+        alert('Copied the text: ' + text);
+    }
+
+</script>
 
 {% endblock %}

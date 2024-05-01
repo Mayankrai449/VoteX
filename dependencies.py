@@ -1,8 +1,8 @@
-import auth
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 from jose import JWTError, jwt, ExpiredSignatureError
 from models.model import TokenData
+import auth  # Assuming auth module contains the necessary functions
 
 async def get_current_user(request: Request):
     token = request.cookies.get("access_token")
@@ -25,7 +25,8 @@ async def get_current_user(request: Request):
             raise credentials_exception
         token_data = TokenData(username=username)
     except ExpiredSignatureError:
-        return RedirectResponse(url="/login")
+        message = "expired"
+        return RedirectResponse(url="/login", status_code=302, headers={"Location": f"/login?message={message}"})
     except JWTError:
         raise credentials_exception
 
@@ -38,6 +39,8 @@ async def get_current_user(request: Request):
 async def get_current_active_user(
     current_user: dict = Depends(get_current_user),
 ):
-    if current_user.get("disabled") or isinstance(current_user, RedirectResponse):
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+    if current_user.get("disabled"):
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user

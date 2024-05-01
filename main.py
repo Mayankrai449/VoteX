@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Cookie
+from models.database import get_database_connection
 
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,14 +35,10 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-conn = MongoClient("mongodb+srv://Mayankrai449:RWHLI4g2RqoHljpQ@cluster0.7hu8wbd.mongodb.net/votingsys")
-db = conn.votingsys
-    
+db = get_database_connection()
+
 local_timezone = pytz.timezone('Asia/Kolkata')
 
-@app.get("/", tags = ["greet"])
-async def greet(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/layout", response_class=HTMLResponse, tags=["greet"])
 async def layout(request: Request):
@@ -52,6 +49,7 @@ async def dashboard(request: Request, current_user: dict = Depends(get_current_a
                     flash_message: Optional[str] = Cookie(None),
                     flash_type: Optional[str] = Cookie(None)):
     response = templates.TemplateResponse("dashboard.html", {"request": request, "token": current_user,
+                                                             "user": current_user["username"],
                                                              "flash_message": flash_message,
                                                              "flash_type": flash_type})
     response.set_cookie(key="flash_message", value="", httponly=True)
@@ -77,19 +75,18 @@ async def all_res(request: Request, current_user: dict = Depends(get_current_act
     
     return templates.TemplateResponse("allResults.html", {"request": request, "results": results, "token": current_user})
 
-@app.get("/results/{poll_id}", tags=["data"])
+@app.get("/results/{poll_id}", tags=["data"], response_class=HTMLResponse)
 async def result(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user)):
     
-    results = db.history.find({"poll_id": poll_id})
+    results = db.history.find_one({"poll_id": poll_id})
     
     vote_counts: Dict[str, int] = {}
-    for result in results:
-        for candidate, count in result['name'].items():
-            vote_counts[candidate] = vote_counts.get(candidate, 0) + count
+    for candidate, count in results['name'].items():
+        vote_counts[candidate] = vote_counts.get(candidate, 0) + count
 
     winner = max(vote_counts, key=vote_counts.get) if vote_counts else None
 
-    data: Dict[str, Any] = {"request": request, "results": vote_counts, "winner": winner, "token": current_user}
+    data: Dict[str, Any] = {"request": request, "results": results, "vote": vote_counts, "winner": winner, "token": current_user}
     
     return templates.TemplateResponse("result.html", data)
 
@@ -131,6 +128,8 @@ async def poll_form(request: Request, current_user: dict = Depends(get_current_a
 async def get_polls(request: Request, current_user: dict = Depends(get_current_active_user),
                     flash_message: Optional[str] = Cookie(None),
                     flash_type: Optional[str] = Cookie(None)):
+    if isinstance(current_user, RedirectResponse):
+        return current_user
     polls = db.polls.find({"creator": current_user["username"]})
     response = templates.TemplateResponse("allPolls.html", {"request": request,
                                                         "polls": polls, "token": current_user,
@@ -253,8 +252,21 @@ async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
         return RedirectResponse(url="/login")
     except Exception as e:
         return {"error": str(e)}
+    
+@app.get("/login", tags = ["greet"])
+async def login(request: Request, message: str = None):
+    flash_message = None
+    flash_type = None
+    
+    if message == "expired":
+        flash_message = "Session expired. Please login again"
+        flash_type = "neutral"
+    return templates.TemplateResponse("login.html", {
+        "request": request, 
+        "flash_message": flash_message, 
+        "flash_type": flash_type})
 
-@app.post("/login", tags=["user"])
+@app.post("/user/login", tags=["user"])
 async def token_auth(response: Response, user: Annotated[OAuth2PasswordRequestForm, Depends()]):
     if not auth.check_user(user):
         response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)

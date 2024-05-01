@@ -11,10 +11,9 @@ from datetime import datetime, timedelta, timezone
 from decouple import config
 
 from models.model import UserLoginSchema
-import control
-from main import app, db
+from models.database import get_database_connection
 
-
+db = get_database_connection()
 
 pass_context = CryptContext(schemes=["argon2"], deprecated="auto")
 oauth_2_scheme = OAuth2PasswordBearer(tokenUrl="login")
