@@ -26,7 +26,7 @@ async def get_current_user(request: Request):
         token_data = TokenData(username=username)
     except ExpiredSignatureError:
         message = "expired"
-        return RedirectResponse(url="/login", status_code=302, headers={"Location": f"/login?message={message}"})
+        return RedirectResponse(url="/", status_code=302, headers={"Location": f"/login?message={message}"})
     except JWTError:
         raise credentials_exception
 

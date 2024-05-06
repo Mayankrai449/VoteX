@@ -6,9 +6,9 @@ from fastapi import Cookie
 
 from typing import Optional, Dict, Any
 
-from main import db
+from models.database import get_database_connection
 
-from dependencies import get_current_active_user
+from controller.dependencies import get_current_active_user
 
 
 router = APIRouter()
@@ -31,14 +31,14 @@ async def dashboard(request: Request, current_user: dict = Depends(get_current_a
     return response
 
 @router.get("/history", tags=["data"])
-async def history(request: Request, current_user: dict = Depends(get_current_active_user)):
+async def history(request: Request, current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     
     history = db.history.find({"creator": current_user["username"], "poll_id": {"$nin": db.polls.distinct("poll_id")}})
     
-    return templates.TemplateResponse("history.html", {"request": request, "history": history, "token": current_user})
+    return templates.TemplateResponse("history.html", {"request": request, "user": current_user["username"], "history": history, "token": current_user})
 
 @router.get("/results", tags=["data"])
-async def all_res(request: Request, current_user: dict = Depends(get_current_active_user)):
+async def all_res(request: Request, current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     
     res = db.votes.find({"voter": current_user["username"], "poll_id": {"$nin": db.polls.distinct("poll_id")}})
     
@@ -46,10 +46,10 @@ async def all_res(request: Request, current_user: dict = Depends(get_current_act
     
     results = db.history.find({"poll_id": {"$in": poll_ids}})
     
-    return templates.TemplateResponse("allResults.html", {"request": request, "results": results, "token": current_user})
+    return templates.TemplateResponse("allResults.html", {"request": request, "user": current_user["username"], "results": results, "token": current_user})
 
 @router.get("/results/{poll_id}", tags=["data"], response_class=HTMLResponse)
-async def result(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user)):
+async def result(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     
     results = db.history.find_one({"poll_id": poll_id})
     
@@ -59,6 +59,6 @@ async def result(request: Request, poll_id: str, current_user: dict = Depends(ge
 
     winner = max(vote_counts, key=vote_counts.get) if vote_counts else None
 
-    data: Dict[str, Any] = {"request": request, "results": results, "vote": vote_counts, "winner": winner, "token": current_user}
+    data: Dict[str, Any] = {"request": request, "user": current_user["username"], "results": results, "vote": vote_counts, "winner": winner, "token": current_user}
     
     return templates.TemplateResponse("result.html", data)

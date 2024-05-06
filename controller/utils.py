@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime
 import base64
 
 def encode_id(title: str, username: str) -> str:

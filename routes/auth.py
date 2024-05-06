@@ -5,14 +5,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 from typing_extensions import Annotated
 
+from fastapi import Cookie
+from typing import Optional
 
 from datetime import timedelta
-import control
+from controller.utils import calculate_age
 import auth
 
-
 from models.model import UserRegSchema
-from main import db
+from models.database import get_database_connection
+
 
 router = APIRouter()
 
@@ -25,28 +27,35 @@ async def register(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @router.post("/user/register", tags=["user"])
-async def user_register(user: UserRegSchema = Depends(UserRegSchema.form)):
+async def user_register(user: UserRegSchema = Depends(UserRegSchema.form), db = Depends(get_database_connection)):
     try:
         data = user.model_dump()
         data["password"] = auth.get_hashed_password(data["password"])
-        data["age"] = control.calculate_age(data["dob"])
+        data["age"] = calculate_age(data["dob"])
         db.users.insert_one(data)
         return RedirectResponse(url="/login")
     except Exception as e:
         return {"error": str(e)}
     
-@router.get("/login", tags = ["greet"])
-async def login(request: Request, message: str = None):
-    flash_message = None
-    flash_type = None
+@router.get("/", tags=["greet"])
+async def login(request: Request, message: str = None,
+                flash_message: Optional[str] = Cookie(None),
+                flash_type: Optional[str] = Cookie(None)):
     
     if message == "expired":
-        flash_message = "Session expired. Please login again"
-        flash_type = "neutral"
-    return templates.TemplateResponse("login.html", {
+        flash_message = "Your Session has Expired! Please Log In again."
+        flash_type = "failure"
+        
+    response = templates.TemplateResponse("login.html", {
         "request": request, 
         "flash_message": flash_message, 
         "flash_type": flash_type})
+    
+    if message != "expired":
+        response.set_cookie(key="flash_message", value="", httponly=True)
+        response.set_cookie(key="flash_type", value="", httponly=True)
+    
+    return response
 
 @router.post("/user/login", tags=["user"])
 async def token_auth(response: Response, user: Annotated[OAuth2PasswordRequestForm, Depends()]):
@@ -72,7 +81,14 @@ async def token_auth(response: Response, user: Annotated[OAuth2PasswordRequestFo
     return response
     
 @router.get("/logout", tags=["user"])
-def logout(response: Response):
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+def logout(response: Response):  
     response.delete_cookie("access_token")
+    
+    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    flash_message = "You have been Successfully Logged Out!"
+    flash_type = "success"
+    
+    response.set_cookie(key="flash_message", value=flash_message, httponly=True)
+    response.set_cookie(key="flash_type", value=flash_type, httponly=True)
+    
     return response

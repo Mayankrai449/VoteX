@@ -1,15 +1,13 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from models.database import get_database_connection
-
-from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-
-import uvicorn
+from routes import auth_router, dashboard_router, polls_router
 
 
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,12 +16,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
-db = get_database_connection()
-
+app.include_router(auth_router)
+app.include_router(dashboard_router)
+app.include_router(polls_router)
 
     
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, port=8004, host="127.0.0.1")

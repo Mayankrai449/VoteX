@@ -4,18 +4,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Cookie
 
-from typing import Optional, Dict, Any
+from typing import Optional
 from urllib.parse import urlencode
 from typing_extensions import Annotated
 
-from main import db
-from models.poll_model import PollForm
 
-from dependencies import get_current_active_user
+from models.poll_model import PollForm
+from models.database import get_database_connection
+
+from controller.dependencies import get_current_active_user
 from datetime import datetime
 import pytz
 
-import control
+from controller.utils import encode_id
 
 
 router = APIRouter()
@@ -27,7 +28,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 @router.post("/createpoll", tags=["poll"])
-async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
+async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     try:
         end_datetime_str = f"{data.end_date} {data.end_time}"
         end_datetime = datetime.strptime(end_datetime_str, "%m/%d/%Y %H:%M")
@@ -35,7 +36,7 @@ async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dic
         
         poll = data.model_dump()
         poll["creator"] = current_user["username"]
-        poll["poll_id"] = control.encode_id(poll["title"], poll["creator"])
+        poll["poll_id"] = encode_id(poll["title"], poll["creator"])
         poll["expiry_time"] = end_datetime_local
         
         db.polls.insert_one(poll)
@@ -56,12 +57,12 @@ async def create_poll(data: PollForm = Depends(PollForm.form), current_user: dic
 
 
 @router.get("/pollform", tags=["poll"])
-async def poll_form(request: Request, current_user: dict = Depends(get_current_active_user)):
-    return templates.TemplateResponse("createpoll.html", {"request": request, "token": current_user})
+async def poll_form(request: Request, current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
+    return templates.TemplateResponse("createpoll.html", {"request": request, "user": current_user["username"], "token": current_user})
 
 
 @router.get("/polls", tags=["poll"])
-async def get_polls(request: Request, current_user: dict = Depends(get_current_active_user),
+async def get_polls(request: Request, current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection),
                     flash_message: Optional[str] = Cookie(None),
                     flash_type: Optional[str] = Cookie(None)):
     if isinstance(current_user, RedirectResponse):
@@ -69,6 +70,7 @@ async def get_polls(request: Request, current_user: dict = Depends(get_current_a
     polls = db.polls.find({"creator": current_user["username"]})
     response = templates.TemplateResponse("allPolls.html", {"request": request,
                                                         "polls": polls, "token": current_user,
+                                                        "user": current_user["username"],
                                                         "flash_message": flash_message,
                                                         "flash_type": flash_type})
     response.set_cookie(key="flash_message", value="", httponly=True)
@@ -77,14 +79,14 @@ async def get_polls(request: Request, current_user: dict = Depends(get_current_a
     return response
 
 @router.get("/poll/{poll_id}", tags=["poll"])
-async def get_poll(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user)):
+async def get_poll(request: Request, poll_id: str, current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     poll = db.polls.find_one({"poll_id": poll_id})
     name = poll["name"]
-    return templates.TemplateResponse("poll.html", {"request": request, "poll": poll, "name": name, "token": current_user})
+    return templates.TemplateResponse("poll.html", {"request": request, "user": current_user["username"], "poll": poll, "name": name, "token": current_user})
 
 
 @router.post("/vote", tags=["poll"])
-async def vote(response: Response, poll_id: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user)):
+async def vote(response: Response, poll_id: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     poll = db.polls.find_one({"poll_id": poll_id})
     if not poll:
         return {"error": "Poll not found"}
@@ -92,7 +94,7 @@ async def vote(response: Response, poll_id: Annotated[str, Form()], current_user
 
 
 @router.post("/vote/{poll_id}", status_code=201, tags=["poll"])
-async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user)):
+async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     username = current_user["username"]
     poll = db.polls.find_one({"poll_id": poll_id})
     user = db.users.find_one({"username": username})
@@ -121,7 +123,7 @@ async def vote(response: Response, poll_id: str, cast: Annotated[str, Form()], c
 
 
 @router.post("/updatevote/{poll_id}", tags=["poll"])
-async def update_vote(poll_id: str, cast: str = Query(..., alias="cast"), current_user: dict = Depends(get_current_active_user)):
+async def update_vote(response: Response, poll_id: str, cast: str = Query(..., alias="cast"), current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     poll_in_polls = db.polls.find_one({"poll_id": poll_id})
     poll_in_history = db.history.find_one({"poll_id": poll_id})
 
@@ -140,11 +142,18 @@ async def update_vote(poll_id: str, cast: str = Query(..., alias="cast"), curren
     poll_in_history["name"][cast] += 1
     db.history.update_one({"poll_id": poll_id}, {"$set": {"name": poll_in_history["name"]}})
     
-    return RedirectResponse(url=f"/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url=f"/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    flash_message = "Vote casted successfully!"
+    flash_type = "success"
+    
+    response.set_cookie(key="flash_message", value=flash_message, httponly=True)
+    response.set_cookie(key="flash_type", value=flash_type, httponly=True)
+    
+    return response
 
 
 @router.patch("/updatepoll/{poll_id}", tags=["poll"])
-async def update_poll(poll_id: str, data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user)):
+async def update_poll(poll_id: str, data: PollForm = Depends(PollForm.form), current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     poll = db.polls.find_one({"poll_id": poll_id})
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -154,7 +163,7 @@ async def update_poll(poll_id: str, data: PollForm = Depends(PollForm.form), cur
 
 
 @router.post("/deletepoll/{poll_id}", tags=["poll"])
-async def delete_poll(response: Response, poll_id: str, current_user: dict = Depends(get_current_active_user)):
+async def delete_poll(response: Response, poll_id: str, current_user: dict = Depends(get_current_active_user), db = Depends(get_database_connection)):
     poll = db.polls.find_one({"poll_id": poll_id})
     response = RedirectResponse(url="/polls", status_code=status.HTTP_303_SEE_OTHER)
     if not poll:
