@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 from jose import JWTError, jwt, ExpiredSignatureError
 from models.model import TokenData
-import auth  # Assuming auth module contains the necessary functions
+import auth
 
 async def get_current_user(request: Request):
     token = request.cookies.get("access_token")

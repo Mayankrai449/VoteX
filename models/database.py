@@ -1,5 +1,7 @@
 from pymongo import MongoClient
+import os
+db_url = os.getenv("DATABASE_URL")
 
 def get_database_connection():
-    conn = MongoClient("mongodb+srv://Mayankrai449:RWHLI4g2RqoHljpQ@cluster0.7hu8wbd.mongodb.net/votingsys")
+    conn = MongoClient(db_url)
     return conn.votingsys
