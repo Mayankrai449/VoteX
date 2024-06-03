@@ -4,6 +4,14 @@
 
 Welcome to the Blockchain-Based Voting System repository! This project aims to implement a secure and transparent voting system using blockchain technology. While the repository currently offers a simple voting system with basic features, such as poll creation, voting, and result viewing, please note that the blockchain features are planned for future implementation and are not yet available.
 
+
+![Login](images/login.png)
+
+![Dashboard](images/dashboard.png)
+
+![Form](images/form.png)
+
+
 I am actively working on integrating blockchain technology into the voting system to enhance security, transparency, and trust in the electoral process. Stay tuned for updates as I continue to develop and refine the project.
 
 Your feedback and contributions are highly appreciated as I work towards building a robust and reliable blockchain-based voting solution.
